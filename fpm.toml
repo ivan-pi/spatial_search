@@ -1,0 +1,11 @@
+name = "hello_world"
+version = "0.1"
+author = "Ivan Pribec"
+copyright = "Copyright 2025 Ivan Pribec"
+
+[library]
+source-dir = "src"
+include-dir = ["src/include"]
+
+[dependencies]
+kdtree2 = { git = "https://github.com/ivan-pi/kdtree2", branch = "fpm" }
