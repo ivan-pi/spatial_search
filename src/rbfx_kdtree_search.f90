@@ -4,23 +4,31 @@
 !> .. _nanoflann: https://github.com/ivan-pi/kdtree2
 !>
 module rbfx_kdtree_search
-use rbfx_spatial_search, only: spatial_search
-use kdtree2_module, only: kdtree2, kdtree2_create, kdtree2_n_nearest
+use rbfx_spatial_search, only: spatial_search, wp
+use kdtree2_module, only: kdtree2, kdtree2_create, kdtree2_destroy
+use kdtree2_module, only: kdtree2_result, kdtree2_n_nearest
 implicit none
+private
+
+public :: kdtree_search, wp
+
 
 !> kdtree2-based spatial search tree
 type, extends(spatial_search) :: kdtree_search
     private
     type(kdtree2) :: tr !> Reference to a kdtree2 tree
 contains
+    procedure :: init =>  kdtree_create_xy
     procedure, non_overridable :: find_nearest_idx => kdtree_nearest_idx
+    procedure, non_overridable :: find_nearest_idx_dist => kdtree_nearest_idx_dist
     procedure, non_overridable :: find_nearest_coords => kdtree_nearest_coords
-    procedure, non_overridable :: destroy => kdtree_destroy
+    procedure :: destroy => kdtree_destroy
 end type
 
 contains
 
-    function kdtree_create_xy(x,y) result(tree)
+    subroutine kdtree_create_xy(this,x,y)
+        class(kdtree_search), intent(out) :: this
         real(wp), intent(in) :: x(:), y(:)
 
         type(kdtree_search) :: tree
@@ -33,25 +41,43 @@ contains
         xy(1,:) = x
         xy(2,:) = y
 
-        tree%dims = 2
-        tree%tr = kdtree2_create(xy,tree%dims,&
+        ! kdtree2 always creates a copy of the input data
+
+        this%dims = 2
+        this%tr = kdtree2_create(xy,this%dims,&
             sort=.true.,&
             rearrange=.false.,&
-            verbose=verbose)
+            bucket_size=12,&
+            verbose=.true.)
 
-    end function
+    end subroutine
 
-    subroutine kdtree_nearest_idx(this,p,m,idx)
+    subroutine kdtree_nearest_idx(this,p,idx)
         class(kdtree_search), intent(in) :: this
         real(wp), intent(in) :: p(this%dims)
-        integer, intent(in) :: m
-        integer, intent(out) :: idx(m)
+        integer, intent(out), contiguous :: idx(:)
 
         ! Hopefully this will fit on the stack
-        type(kdtree2_result) :: results(m)
+        type(kdtree2_result) :: results(size(idx))
 
-        call kdtree2_n_nearest(this%tr,p,m,results)
+        call kdtree2_n_nearest(this%tr,p,size(results),results)
         idx = results%idx
+
+    end subroutine
+
+    subroutine kdtree_nearest_idx_dist(this,p,idx,dist)
+        class(kdtree_search), intent(in) :: this
+        real(wp), intent(in) :: p(this%dims)
+        integer, intent(out), contiguous :: idx(:)
+        real(wp), intent(out), contiguous :: dist(:)
+
+        ! Hopefully this will fit on the stack
+        type(kdtree2_result) :: results(size(idx))
+
+
+        call kdtree2_n_nearest(this%tr,p,size(results),results)
+        idx = results%idx
+        dist = results%dis
 
     end subroutine
 
@@ -82,6 +108,7 @@ contains
 
     subroutine kdtree_destroy(this)
         class(kdtree_search), intent(inout) :: this
+        this%dims = -1
         call kdtree2_destroy(this%tr)
     end subroutine
 
