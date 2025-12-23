@@ -7,4 +7,4 @@ To include in your Fortran project use:
 spatial_search = { git = "https://github.com/ivan-pi/spatial_search.git"}
 ```
 
-Examples can be found in the [`examples/`](./examples/) folder.
+Examples can be found in the [`example/`](example/) folder.
